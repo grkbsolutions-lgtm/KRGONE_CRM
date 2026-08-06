@@ -271,7 +271,7 @@ class LocalDatabase {
   }
 
   public saveLead(data: {
-    companyName: string;
+    companyName?: string;
     contactPerson?: string;
     mobile?: string;
     phone?: string;
@@ -288,29 +288,29 @@ class LocalDatabase {
 
     const company: CompanyRecord = {
       id: companyId,
-      companyName: data.companyName.trim(),
-      category: data.category?.trim() || 'General / Uncategorized',
-      website: data.website?.trim() || '',
+      companyName: String(data?.companyName || 'Unnamed Business').trim(),
+      category: String(data?.category || 'General / Uncategorized').trim(),
+      website: String(data?.website || '').trim(),
       createdAt: new Date().toISOString(),
     };
 
     const contact: ContactRecord = {
       id: `cont_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       companyId,
-      contactPerson: data.contactPerson?.trim() || '',
-      mobile: data.mobile?.trim() || '',
-      phone: data.phone?.trim() || '',
-      email: data.email?.trim() || '',
+      contactPerson: String(data?.contactPerson || '').trim(),
+      mobile: String(data?.mobile || '').trim(),
+      phone: String(data?.phone || '').trim(),
+      email: String(data?.email || '').trim(),
     };
 
     const address: AddressRecord = {
       id: `addr_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
       companyId,
-      officeAddress: data.officeAddress?.trim() || '',
-      factoryAddress: data.factoryAddress?.trim() || '',
-      city: data.city?.trim() || '',
-      state: data.state?.trim() || '',
-      pincode: data.pincode?.trim() || '',
+      officeAddress: String(data?.officeAddress || '').trim(),
+      factoryAddress: String(data?.factoryAddress || '').trim(),
+      city: String(data?.city || '').trim(),
+      state: String(data?.state || '').trim(),
+      pincode: String(data?.pincode || '').trim(),
     };
 
     this.data.companies.unshift(company);
@@ -341,9 +341,9 @@ class LocalDatabase {
     const company = this.data.companies.find((c) => c.id === companyId);
     if (!company) return null;
 
-    if (data.companyName !== undefined) company.companyName = data.companyName.trim();
-    if (data.category !== undefined) company.category = data.category.trim();
-    if (data.website !== undefined) company.website = data.website.trim();
+    if (data?.companyName !== undefined && data?.companyName !== null) company.companyName = String(data.companyName).trim();
+    if (data?.category !== undefined && data?.category !== null) company.category = String(data.category).trim();
+    if (data?.website !== undefined && data?.website !== null) company.website = String(data.website).trim();
 
     let contact = this.data.contacts.find((c) => c.companyId === companyId);
     if (!contact) {
@@ -358,10 +358,10 @@ class LocalDatabase {
       this.data.contacts.push(contact);
     }
 
-    if (data.contactPerson !== undefined) contact.contactPerson = data.contactPerson.trim();
-    if (data.mobile !== undefined) contact.mobile = data.mobile.trim();
-    if (data.phone !== undefined) contact.phone = data.phone.trim();
-    if (data.email !== undefined) contact.email = data.email.trim();
+    if (data?.contactPerson !== undefined && data?.contactPerson !== null) contact.contactPerson = String(data.contactPerson).trim();
+    if (data?.mobile !== undefined && data?.mobile !== null) contact.mobile = String(data.mobile).trim();
+    if (data?.phone !== undefined && data?.phone !== null) contact.phone = String(data.phone).trim();
+    if (data?.email !== undefined && data?.email !== null) contact.email = String(data.email).trim();
 
     let address = this.data.addresses.find((a) => a.companyId === companyId);
     if (!address) {
@@ -377,11 +377,11 @@ class LocalDatabase {
       this.data.addresses.push(address);
     }
 
-    if (data.officeAddress !== undefined) address.officeAddress = data.officeAddress.trim();
-    if (data.factoryAddress !== undefined) address.factoryAddress = data.factoryAddress.trim();
-    if (data.city !== undefined) address.city = data.city.trim();
-    if (data.state !== undefined) address.state = data.state.trim();
-    if (data.pincode !== undefined) address.pincode = data.pincode.trim();
+    if (data?.officeAddress !== undefined && data?.officeAddress !== null) address.officeAddress = String(data.officeAddress).trim();
+    if (data?.factoryAddress !== undefined && data?.factoryAddress !== null) address.factoryAddress = String(data.factoryAddress).trim();
+    if (data?.city !== undefined && data?.city !== null) address.city = String(data.city).trim();
+    if (data?.state !== undefined && data?.state !== null) address.state = String(data.state).trim();
+    if (data?.pincode !== undefined && data?.pincode !== null) address.pincode = String(data.pincode).trim();
 
     this.save();
     return { company, contact, address };

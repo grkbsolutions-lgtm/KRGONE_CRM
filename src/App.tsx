@@ -254,10 +254,13 @@ export default function App() {
     try {
       const payload = {
         importedBy: 'Scanner User',
-        sourceType: selectedFileSource?.sourceType || 'image',
+        sourceType: selectedFileSource?.sourceType || 'excel',
         processingTimeMs,
         leads: selectedList.map((c) => ({
-          data: c,
+          data: {
+            ...c,
+            companyName: c.companyName || 'Unnamed Lead',
+          },
           action: c.duplicateStatus?.action || 'save_new',
           targetCompanyId: c.duplicateStatus?.existingCompanyId,
         })),
@@ -269,8 +272,17 @@ export default function App() {
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        const result = await res.json();
+      const contentType = res.headers.get('content-type') || '';
+      let result: any = null;
+
+      if (contentType.includes('application/json')) {
+        result = await res.json();
+      } else {
+        const textStr = await res.text();
+        throw new Error(`Server returned status ${res.status}: ${res.statusText}`);
+      }
+
+      if (res.ok && result?.success) {
         // Remove saved items from review list
         const savedTempIds = new Set(selectedList.map((s) => s.tempId));
         setExtractedCompanies((prev) => prev.filter((c) => !savedTempIds.has(c.tempId)));
@@ -286,12 +298,11 @@ export default function App() {
           setActiveTab('leads');
         }
       } else {
-        const errData = await res.json();
-        alert(`Error saving leads: ${errData.error || 'Unknown error'}`);
+        alert(`Error saving leads: ${result?.error || 'Unknown error on server'}`);
       }
     } catch (err: any) {
       console.error('Batch save error:', err);
-      alert('Failed to connect to server during batch save.');
+      alert(`Error saving leads: ${err?.message || 'Connection error'}`);
     } finally {
       setIsSavingBatch(false);
       setTimeout(() => setStatusMessage(null), 5000);
