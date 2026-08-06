@@ -14,7 +14,11 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Helper to get Gemini AI instance dynamically (re-checks env key)
 function getGeminiAI() {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    '';
   return {
     ai: new GoogleGenAI({
       apiKey,
@@ -113,15 +117,34 @@ Key Objectives:
         },
       };
 
-      const geminiResponse = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: { parts: [imagePart, textPart] },
-        config: {
-          systemInstruction,
-          responseMimeType: 'application/json',
-          responseSchema,
-        },
-      });
+      let geminiResponse: any = null;
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-1.5-flash', 'gemini-2.0-flash'];
+      let lastModelError: any = null;
+
+      for (const modelCandidate of modelsToTry) {
+        try {
+          geminiResponse = await ai.models.generateContent({
+            model: modelCandidate,
+            contents: { parts: [imagePart, textPart] },
+            config: {
+              systemInstruction,
+              responseMimeType: 'application/json',
+              responseSchema,
+            },
+          });
+          if (geminiResponse) break;
+        } catch (mErr: any) {
+          lastModelError = mErr;
+          console.warn(`Model ${modelCandidate} failed:`, mErr?.message || mErr);
+        }
+      }
+
+      if (!geminiResponse) {
+        throw new Error(
+          lastModelError?.message ||
+            'Gemini API error. Please verify your GEMINI_API_KEY in Vercel project environment variables.'
+        );
+      }
 
       const processingTimeMs = Date.now() - startTime;
       const rawText = geminiResponse.text ? geminiResponse.text.trim() : '[]';

@@ -21,6 +21,39 @@ import {
 } from './types';
 import { Sparkles, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 
+// Helper to compress image payloads for Vercel serverless function limits
+async function compressImageDataUrlIfNeeded(dataUrl: string, maxBytes = 2 * 1024 * 1024): Promise<string> {
+  if (!dataUrl || !dataUrl.startsWith('data:image/') || dataUrl.length <= maxBytes) {
+    return dataUrl;
+  }
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let { width, height } = img;
+      const maxDim = 2000;
+      if (width > maxDim || height > maxDim) {
+        if (width > height) {
+          height = Math.round((height * maxDim) / width);
+          width = maxDim;
+        } else {
+          width = Math.round((width * maxDim) / height);
+          height = maxDim;
+        }
+      }
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return resolve(dataUrl);
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.82);
+      resolve(compressed);
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 export default function App() {
   // Navigation & Layout State
   const [activeTab, setActiveTab] = useState<ActiveTab | 'review'>('dashboard');
@@ -131,11 +164,13 @@ export default function App() {
     setStatusMessage('Analyzing document with Gemini AI vision... Detecting multi-company leads...');
 
     try {
+      const payloadDataUrl = await compressImageDataUrlIfNeeded(processedDataUrl);
+
       const response = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fileData: processedDataUrl,
+          fileData: payloadDataUrl,
           mimeType: selectedFileSource.mimeType,
           sourceType: selectedFileSource.sourceType,
           options,

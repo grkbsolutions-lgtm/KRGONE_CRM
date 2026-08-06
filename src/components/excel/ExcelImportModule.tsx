@@ -66,10 +66,12 @@ export const ExcelImportModule: React.FC<ExcelImportModuleProps> = ({
 
         const sheetMetas: ExcelWorksheetMeta[] = wb.SheetNames.map((name) => {
           const ws = wb.Sheets[name];
-          const range = XLSX.utils.decode_range(ws['!ref'] || 'A1:A1');
-          const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { header: 1 });
-          const headers = (json[0] || []).map((h: any) => String(h || '').trim());
-          const rowCount = Math.max(0, json.length - 1);
+          const json2D = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
+          const rawHeaderRow = (json2D[0] || []) as any[];
+          const headers = rawHeaderRow
+            .map((h, colIdx) => String(h || '').trim() || `Column ${colIdx + 1}`)
+            .filter(Boolean);
+          const rowCount = Math.max(0, json2D.length - 1);
           return {
             sheetName: name,
             rowCount,
@@ -87,7 +89,7 @@ export const ExcelImportModule: React.FC<ExcelImportModuleProps> = ({
         setIsReading(false);
       } catch (err: any) {
         setIsReading(false);
-        setReadError('Failed to read Excel file: ' + (err.message || 'Corrupted spreadsheet format'));
+        setReadError('Failed to read Excel/CSV file: ' + (err.message || 'Corrupted spreadsheet format'));
       }
     };
     reader.onerror = () => {
@@ -114,13 +116,37 @@ export const ExcelImportModule: React.FC<ExcelImportModuleProps> = ({
     const ws = wb.Sheets[sheetName];
     if (!ws) return;
 
-    const jsonRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws);
+    // Get raw data with defval: '' to keep blank cell columns in rows
+    const jsonRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: '' });
     setRawSheetData(jsonRows);
 
-    if (jsonRows.length > 0) {
-      const firstRow = jsonRows[0];
-      const headers = Object.keys(firstRow);
+    // Extract row 1 as raw headers
+    const json2D = XLSX.utils.sheet_to_json<any[]>(ws, { header: 1, defval: '' });
+    const rawHeaderRow = (json2D[0] || []) as any[];
 
+    const headerSet = new Set<string>();
+    rawHeaderRow.forEach((h, colIdx) => {
+      const colName = String(h || '').trim();
+      if (colName) {
+        headerSet.add(colName);
+      } else {
+        headerSet.add(`Column ${colIdx + 1}`);
+      }
+    });
+
+    // Also scan all data rows to ensure any keys missing in row 1 are captured
+    jsonRows.forEach((row) => {
+      Object.keys(row).forEach((k) => {
+        const trimmed = k ? k.trim() : '';
+        if (trimmed && !trimmed.startsWith('__EMPTY')) {
+          headerSet.add(trimmed);
+        }
+      });
+    });
+
+    const headers = Array.from(headerSet);
+
+    if (headers.length > 0) {
       const initialMappings: ColumnMappingItem[] = headers.map((h) => ({
         excelHeader: h,
         targetField: autoDetectColumn(h),
