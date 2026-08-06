@@ -1,0 +1,10 @@
+{
+  "name": "AI Smart Scanner",
+  "description": "Convert PDF business directories, visiting cards, and brochures into structured leads with Google Gemini AI OCR.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
