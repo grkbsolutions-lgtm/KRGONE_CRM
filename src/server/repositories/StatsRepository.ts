@@ -1,5 +1,4 @@
 import { FirestoreRepository } from './FirestoreRepository';
-import { localFallbackStore } from './LocalFallbackStore';
 import { CompanyRecord, ContactRecord, ImportLogRecord, DashboardStats } from '../../types';
 
 export class StatsRepository extends FirestoreRepository {
@@ -58,8 +57,7 @@ export class StatsRepository extends FirestoreRepository {
           recentLogs: logs.slice(0, 10),
         };
       },
-      'Failed to fetch dashboard stats',
-      () => localFallbackStore.getStats()
+      'Failed to fetch dashboard stats'
     );
   }
 }

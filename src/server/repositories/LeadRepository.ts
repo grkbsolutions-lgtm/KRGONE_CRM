@@ -1,5 +1,4 @@
 import { FirestoreRepository } from './FirestoreRepository';
-import { localFallbackStore } from './LocalFallbackStore';
 import { CompanyRecord, ContactRecord, AddressRecord, FullLeadRecord } from '../../types';
 
 export interface LeadDataInput {
@@ -70,8 +69,7 @@ export class LeadRepository extends FirestoreRepository {
           return { company, contact, address };
         });
       },
-      'Failed to fetch all leads',
-      () => localFallbackStore.getAllLeads()
+      'Failed to fetch all leads'
     );
   }
 
@@ -121,8 +119,7 @@ export class LeadRepository extends FirestoreRepository {
 
         return { company, contact, address };
       },
-      `Failed to fetch lead by ID: ${companyId}`,
-      () => localFallbackStore.getLeadById(companyId)
+      `Failed to fetch lead by ID: ${companyId}`
     );
   }
 
@@ -193,8 +190,7 @@ export class LeadRepository extends FirestoreRepository {
           matchedFields,
         };
       },
-      'Failed to check duplicate company',
-      () => localFallbackStore.checkDuplicate(companyName, mobile, email)
+      'Failed to check duplicate company'
     );
   }
 
@@ -239,13 +235,9 @@ export class LeadRepository extends FirestoreRepository {
 
         await batch.commit();
 
-        // Keep local store in sync
-        localFallbackStore.saveLead(data);
-
         return { company, contact, address };
       },
-      'Failed to save new lead',
-      () => localFallbackStore.saveLead(data)
+      'Failed to save new lead'
     );
   }
 
@@ -336,11 +328,9 @@ export class LeadRepository extends FirestoreRepository {
 
         await batch.commit();
 
-        localFallbackStore.updateLead(companyId, data);
         return { company, contact, address };
       },
-      `Failed to update lead ${companyId}`,
-      () => localFallbackStore.updateLead(companyId, data)
+      `Failed to update lead ${companyId}`
     );
   }
 
@@ -367,11 +357,9 @@ export class LeadRepository extends FirestoreRepository {
         addressesSnap.forEach((d) => batch.delete(d.ref));
 
         await batch.commit();
-        localFallbackStore.deleteLead(companyId);
         return true;
       },
-      `Failed to delete lead ${companyId}`,
-      () => localFallbackStore.deleteLead(companyId)
+      `Failed to delete lead ${companyId}`
     );
   }
 }

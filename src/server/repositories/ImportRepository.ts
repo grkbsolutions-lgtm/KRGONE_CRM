@@ -1,5 +1,4 @@
 import { FirestoreRepository } from './FirestoreRepository';
-import { localFallbackStore } from './LocalFallbackStore';
 import { ImportLogRecord } from '../../types';
 
 export class ImportRepository extends FirestoreRepository {
@@ -21,11 +20,9 @@ export class ImportRepository extends FirestoreRepository {
         };
 
         await this.firestore.collection(this.importLogsCol).doc(logId).set(newLog);
-        localFallbackStore.addImportLog(log);
         return newLog;
       },
-      'Failed to add import log',
-      () => localFallbackStore.addImportLog(log)
+      'Failed to add import log'
     );
   }
 
@@ -42,8 +39,7 @@ export class ImportRepository extends FirestoreRepository {
         );
         return logs;
       },
-      'Failed to fetch import logs',
-      () => localFallbackStore.getLogs()
+      'Failed to fetch import logs'
     );
   }
 }

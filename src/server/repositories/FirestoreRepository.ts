@@ -11,18 +11,15 @@ export class FirestoreRepository {
     return adminDb;
   }
 
-  // Handle Firestore operations with local store fallback on permission/connection errors
+  // Execute Firestore operation without fallback to local filesystem
   protected async safeExec<T>(
     op: () => Promise<T>,
-    fallbackMsg: string,
-    fallbackOp?: () => T | Promise<T>
+    fallbackMsg: string
   ): Promise<T> {
     try {
       return await op();
     } catch (err: any) {
-      if (fallbackOp) {
-        return await fallbackOp();
-      }
+      console.error(`[Firestore Error] ${fallbackMsg}:`, err);
       throw new Error(`${fallbackMsg}: ${err?.message || 'Firestore connection issue'}`);
     }
   }
