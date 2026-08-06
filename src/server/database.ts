@@ -9,7 +9,10 @@ interface DatabaseSchema {
   importLogs: ImportLogRecord[];
 }
 
-const DB_PATH = path.join(process.cwd(), 'data', 'scanner_db.json');
+const isVercel = !!process.env.VERCEL || process.env.NODE_ENV === 'production';
+const DB_PATH = isVercel
+  ? path.join('/tmp', 'scanner_db.json')
+  : path.join(process.cwd(), 'data', 'scanner_db.json');
 
 class LocalDatabase {
   private data: DatabaseSchema = {
@@ -29,9 +32,12 @@ class LocalDatabase {
       if (fs.existsSync(DB_PATH)) {
         content = fs.readFileSync(DB_PATH, 'utf-8');
       } else {
+        const fallbackPath = path.join(process.cwd(), 'data', 'scanner_db.json');
         const tmpPath = path.join('/tmp', 'scanner_db.json');
         if (fs.existsSync(tmpPath)) {
           content = fs.readFileSync(tmpPath, 'utf-8');
+        } else if (fs.existsSync(fallbackPath)) {
+          content = fs.readFileSync(fallbackPath, 'utf-8');
         }
       }
 
