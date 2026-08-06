@@ -25,14 +25,18 @@ class LocalDatabase {
 
   private init() {
     try {
-      const dir = path.dirname(DB_PATH);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
+      let content = '';
+      if (fs.existsSync(DB_PATH)) {
+        content = fs.readFileSync(DB_PATH, 'utf-8');
+      } else {
+        const tmpPath = path.join('/tmp', 'scanner_db.json');
+        if (fs.existsSync(tmpPath)) {
+          content = fs.readFileSync(tmpPath, 'utf-8');
+        }
       }
 
-      if (fs.existsSync(DB_PATH)) {
-        const fileContent = fs.readFileSync(DB_PATH, 'utf-8');
-        this.data = JSON.parse(fileContent);
+      if (content) {
+        this.data = JSON.parse(content);
       } else {
         this.seedDemoData();
         this.save();
@@ -45,9 +49,19 @@ class LocalDatabase {
 
   private save() {
     try {
+      const dir = path.dirname(DB_PATH);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
       fs.writeFileSync(DB_PATH, JSON.stringify(this.data, null, 2), 'utf-8');
     } catch (err) {
-      console.error('Error saving database:', err);
+      // Fallback for Vercel / serverless environment read-only filesystem
+      try {
+        const tmpPath = path.join('/tmp', 'scanner_db.json');
+        fs.writeFileSync(tmpPath, JSON.stringify(this.data, null, 2), 'utf-8');
+      } catch (tmpErr) {
+        console.warn('Database save warning (in-memory only):', tmpErr);
+      }
     }
   }
 

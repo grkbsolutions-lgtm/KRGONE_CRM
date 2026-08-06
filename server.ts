@@ -5,47 +5,54 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { db } from './src/server/database.js';
 import { ExtractedCompany, ScanResponse, BatchSaveRequest } from './src/types.js';
 
-async function startServer() {
-  const app = express();
-  const PORT = 3000;
+export const app = express();
+const PORT = 3000;
 
-  // Increase payload limit for scanned image / PDF uploads
-  app.use(express.json({ limit: '50mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// Increase payload limit for scanned image / PDF uploads
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-  // Initialize Gemini AI
-  const ai = new GoogleGenAI({
-    apiKey: process.env.GEMINI_API_KEY || '',
-    httpOptions: {
-      headers: {
-        'User-Agent': 'aistudio-build',
+// Helper to get Gemini AI instance dynamically (re-checks env key)
+function getGeminiAI() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+  return {
+    ai: new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
       },
-    },
-  });
+    }),
+    apiKey,
+  };
+}
 
-  // API Routes
+// API Routes
 
-  // 1. Health check
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
-  });
+// 1. Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
 
-  // 2. Scan Document (PDF / Image / Camera)
-  app.post('/api/scan', async (req, res) => {
-    const startTime = Date.now();
-    try {
-      const { fileData, mimeType, sourceType } = req.body;
+// 2. Scan Document (PDF / Image / Camera)
+app.post('/api/scan', async (req, res) => {
+  const startTime = Date.now();
+  try {
+    const { fileData, mimeType, sourceType } = req.body;
 
-      if (!fileData) {
-        return res.status(400).json({ success: false, error: 'No file data provided.' });
-      }
+    if (!fileData) {
+      return res.status(400).json({ success: false, error: 'No file data provided.' });
+    }
 
-      if (!process.env.GEMINI_API_KEY) {
-        return res.status(500).json({
-          success: false,
-          error: 'Gemini API key is missing. Please check your environment configuration.',
-        });
-      }
+    const { ai, apiKey } = getGeminiAI();
+
+    if (!apiKey) {
+      return res.status(500).json({
+        success: false,
+        error: 'GEMINI_API_KEY environment variable is missing on Vercel/Server. Please set GEMINI_API_KEY in Vercel Project Settings -> Environment Variables.',
+      });
+    }
 
       // Clean base64 string
       const cleanBase64 = fileData.replace(/^data:[^;]+;base64,/, '');
@@ -337,17 +344,18 @@ Key Objectives:
   });
 
   // 8. Get Dashboard Stats & Recent Imports
-  app.get('/api/stats', (req, res) => {
-    const stats = db.getStats();
-    res.json(stats);
-  });
+app.get('/api/stats', (req, res) => {
+  const stats = db.getStats();
+  res.json(stats);
+});
 
-  // 9. Get Import Logs
-  app.get('/api/import-logs', (req, res) => {
-    const logs = db.getLogs();
-    res.json({ logs });
-  });
+// 9. Get Import Logs
+app.get('/api/import-logs', (req, res) => {
+  const logs = db.getLogs();
+  res.json({ logs });
+});
 
+export async function startServer() {
   // Vite Middleware for development vs static production serving
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -368,4 +376,8 @@ Key Objectives:
   });
 }
 
-startServer();
+if (!process.env.VERCEL) {
+  startServer();
+}
+
+export default app;

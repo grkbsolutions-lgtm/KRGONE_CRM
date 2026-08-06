@@ -142,7 +142,17 @@ export default function App() {
         }),
       });
 
-      const data: ScanResponse = await response.json();
+      const contentType = response.headers.get('content-type') || '';
+      let data: ScanResponse;
+
+      if (contentType.includes('application/json')) {
+        data = await response.json();
+      } else {
+        const rawText = await response.text();
+        throw new Error(
+          `Server returned HTTP ${response.status} (${response.statusText}). If deployed on Vercel, ensure GEMINI_API_KEY environment variable is added under Vercel Project Settings.`
+        );
+      }
 
       if (data.success && data.companies) {
         setExtractedCompanies(data.companies);
