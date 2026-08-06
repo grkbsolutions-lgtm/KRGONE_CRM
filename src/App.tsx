@@ -184,8 +184,9 @@ export default function App() {
         data = await response.json();
       } else {
         const rawText = await response.text();
+        const cleanedText = rawText.replace(/<[^>]*>?/gm, '').trim().slice(0, 200);
         throw new Error(
-          `Server returned HTTP ${response.status} (${response.statusText}). If deployed on Vercel, ensure GEMINI_API_KEY environment variable is added under Vercel Project Settings.`
+          cleanedText || `Server returned HTTP ${response.status} (${response.statusText}).`
         );
       }
 
