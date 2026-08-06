@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { CompanyRecord, ContactRecord, AddressRecord, ImportLogRecord, FullLeadRecord, DashboardStats } from '../types.js';
+import { CompanyRecord, ContactRecord, AddressRecord, ImportLogRecord, FullLeadRecord, DashboardStats } from '../types';
 
 interface DatabaseSchema {
   companies: CompanyRecord[];

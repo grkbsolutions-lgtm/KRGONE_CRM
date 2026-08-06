@@ -1,9 +1,8 @@
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
-import { db } from './src/server/database.js';
-import { ExtractedCompany, ScanResponse, BatchSaveRequest } from './src/types.js';
+import { db } from './src/server/database';
+import { ExtractedCompany, ScanResponse, BatchSaveRequest } from './src/types';
 
 export const app = express();
 const PORT = 3000;
@@ -118,7 +117,7 @@ Key Objectives:
       };
 
       let geminiResponse: any = null;
-      const modelsToTry = ['gemini-3.6-flash', 'gemini-flash-latest'];
+      const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
       let lastModelError: any = null;
 
       for (const modelCandidate of modelsToTry) {
@@ -381,6 +380,7 @@ app.get('/api/import-logs', (req, res) => {
 export async function startServer() {
   // Vite Middleware for development vs static production serving
   if (process.env.NODE_ENV !== 'production') {
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
