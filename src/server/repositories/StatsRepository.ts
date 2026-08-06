@@ -1,4 +1,3 @@
-import { collection, getDocs } from 'firebase/firestore';
 import { FirestoreRepository } from './FirestoreRepository';
 import { localFallbackStore } from './LocalFallbackStore';
 import { CompanyRecord, ContactRecord, ImportLogRecord, DashboardStats } from '../../types';
@@ -7,20 +6,23 @@ export class StatsRepository extends FirestoreRepository {
   public async getStats(): Promise<DashboardStats> {
     return this.safeExec(
       async () => {
-        const companiesSnap = await getDocs(collection(this.firestore, this.companiesCol));
-        const contactsSnap = await getDocs(collection(this.firestore, this.contactsCol));
-        const logsSnap = await getDocs(collection(this.firestore, this.importLogsCol));
+        const companiesSnap = await this.firestore.collection(this.companiesCol).get();
+        const contactsSnap = await this.firestore.collection(this.contactsCol).get();
+        const logsSnap = await this.firestore.collection(this.importLogsCol).get();
 
-        const companies: CompanyRecord[] = [];
-        companiesSnap.forEach((d) => companies.push(d.data() as CompanyRecord));
+        const companies: CompanyRecord[] = companiesSnap.docs.map(
+          (d) => d.data() as CompanyRecord
+        );
+        const contacts: ContactRecord[] = contactsSnap.docs.map(
+          (d) => d.data() as ContactRecord
+        );
+        const logs: ImportLogRecord[] = logsSnap.docs.map(
+          (d) => d.data() as ImportLogRecord
+        );
 
-        const contacts: ContactRecord[] = [];
-        contactsSnap.forEach((d) => contacts.push(d.data() as ContactRecord));
-
-        const logs: ImportLogRecord[] = [];
-        logsSnap.forEach((d) => logs.push(d.data() as ImportLogRecord));
-
-        logs.sort((a, b) => new Date(b.importDate || 0).getTime() - new Date(a.importDate || 0).getTime());
+        logs.sort(
+          (a, b) => new Date(b.importDate || 0).getTime() - new Date(a.importDate || 0).getTime()
+        );
 
         const categoryMap: Record<string, number> = {};
         for (const company of companies) {

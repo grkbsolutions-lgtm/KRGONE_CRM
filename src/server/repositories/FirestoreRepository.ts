@@ -1,4 +1,4 @@
-import { db } from '../firebase';
+import { adminDb } from '../firebase-admin';
 
 export class FirestoreRepository {
   protected readonly companiesCol = 'companies';
@@ -8,7 +8,7 @@ export class FirestoreRepository {
   protected readonly systemCol = 'system';
 
   protected get firestore() {
-    return db;
+    return adminDb;
   }
 
   // Handle Firestore operations with local store fallback on permission/connection errors

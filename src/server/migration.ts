@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { collection, doc, getDoc, getDocs, setDoc, writeBatch } from 'firebase/firestore';
-import { db } from './firebase';
+import { adminDb } from './firebase-admin';
 import { CompanyRecord, ContactRecord, AddressRecord, ImportLogRecord } from '../types';
 
 let migrationExecuted = false;
@@ -10,18 +9,18 @@ export async function checkAndRunMigration(): Promise<void> {
   if (migrationExecuted) return;
 
   try {
-    const migrationDocRef = doc(db, 'system', 'migration');
-    const migrationSnap = await getDoc(migrationDocRef);
+    const migrationDocRef = adminDb.collection('system').doc('migration');
+    const migrationSnap = await migrationDocRef.get();
 
-    if (migrationSnap.exists() && migrationSnap.data()?.migrated) {
+    if (migrationSnap.exists && migrationSnap.data()?.migrated) {
       migrationExecuted = true;
       return;
     }
 
     // Check if companies collection already has documents
-    const companiesSnap = await getDocs(collection(db, 'companies'));
+    const companiesSnap = await adminDb.collection('companies').get();
     if (!companiesSnap.empty) {
-      await setDoc(migrationDocRef, { migrated: true, timestamp: new Date().toISOString() });
+      await migrationDocRef.set({ migrated: true, timestamp: new Date().toISOString() });
       migrationExecuted = true;
       return;
     }
@@ -151,29 +150,29 @@ export async function checkAndRunMigration(): Promise<void> {
       };
     }
 
-    const batch = writeBatch(db);
+    const batch = adminDb.batch();
 
     if (dbData.companies) {
       for (const comp of dbData.companies) {
-        batch.set(doc(db, 'companies', comp.id), comp);
+        batch.set(adminDb.collection('companies').doc(comp.id), comp);
       }
     }
 
     if (dbData.contacts) {
       for (const cont of dbData.contacts) {
-        batch.set(doc(db, 'contacts', cont.id), cont);
+        batch.set(adminDb.collection('contacts').doc(cont.id), cont);
       }
     }
 
     if (dbData.addresses) {
       for (const addr of dbData.addresses) {
-        batch.set(doc(db, 'addresses', addr.id), addr);
+        batch.set(adminDb.collection('addresses').doc(addr.id), addr);
       }
     }
 
     if (dbData.importLogs) {
       for (const log of dbData.importLogs) {
-        batch.set(doc(db, 'importLogs', log.id), log);
+        batch.set(adminDb.collection('importLogs').doc(log.id), log);
       }
     }
 

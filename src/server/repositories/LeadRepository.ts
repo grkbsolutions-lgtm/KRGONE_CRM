@@ -1,15 +1,3 @@
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  writeBatch,
-} from 'firebase/firestore';
 import { FirestoreRepository } from './FirestoreRepository';
 import { localFallbackStore } from './LocalFallbackStore';
 import { CompanyRecord, ContactRecord, AddressRecord, FullLeadRecord } from '../../types';
@@ -41,20 +29,23 @@ export class LeadRepository extends FirestoreRepository {
   public async getAllLeads(): Promise<FullLeadRecord[]> {
     return this.safeExec(
       async () => {
-        const companiesSnap = await getDocs(collection(this.firestore, this.companiesCol));
-        const contactsSnap = await getDocs(collection(this.firestore, this.contactsCol));
-        const addressesSnap = await getDocs(collection(this.firestore, this.addressesCol));
+        const companiesSnap = await this.firestore.collection(this.companiesCol).get();
+        const contactsSnap = await this.firestore.collection(this.contactsCol).get();
+        const addressesSnap = await this.firestore.collection(this.addressesCol).get();
 
-        const companies: CompanyRecord[] = [];
-        companiesSnap.forEach((d) => companies.push(d.data() as CompanyRecord));
+        const companies: CompanyRecord[] = companiesSnap.docs.map(
+          (d) => d.data() as CompanyRecord
+        );
+        const contacts: ContactRecord[] = contactsSnap.docs.map(
+          (d) => d.data() as ContactRecord
+        );
+        const addresses: AddressRecord[] = addressesSnap.docs.map(
+          (d) => d.data() as AddressRecord
+        );
 
-        const contacts: ContactRecord[] = [];
-        contactsSnap.forEach((d) => contacts.push(d.data() as ContactRecord));
-
-        const addresses: AddressRecord[] = [];
-        addressesSnap.forEach((d) => addresses.push(d.data() as AddressRecord));
-
-        companies.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+        companies.sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
 
         return companies.map((company) => {
           const contact = contacts.find((c) => c.companyId === company.id) || {
@@ -87,16 +78,18 @@ export class LeadRepository extends FirestoreRepository {
   public async getLeadById(companyId: string): Promise<FullLeadRecord | null> {
     return this.safeExec(
       async () => {
-        const companyDoc = await getDoc(doc(this.firestore, this.companiesCol, companyId));
-        if (!companyDoc.exists()) return null;
+        const companyDoc = await this.firestore
+          .collection(this.companiesCol)
+          .doc(companyId)
+          .get();
+        if (!companyDoc.exists) return null;
 
         const company = companyDoc.data() as CompanyRecord;
 
-        const contactsQ = query(
-          collection(this.firestore, this.contactsCol),
-          where('companyId', '==', companyId)
-        );
-        const contactsSnap = await getDocs(contactsQ);
+        const contactsSnap = await this.firestore
+          .collection(this.contactsCol)
+          .where('companyId', '==', companyId)
+          .get();
         let contact: ContactRecord = {
           id: `cont_${companyId}`,
           companyId,
@@ -109,11 +102,10 @@ export class LeadRepository extends FirestoreRepository {
           contact = contactsSnap.docs[0].data() as ContactRecord;
         }
 
-        const addressesQ = query(
-          collection(this.firestore, this.addressesCol),
-          where('companyId', '==', companyId)
-        );
-        const addressesSnap = await getDocs(addressesQ);
+        const addressesSnap = await this.firestore
+          .collection(this.addressesCol)
+          .where('companyId', '==', companyId)
+          .get();
         let address: AddressRecord = {
           id: `addr_${companyId}`,
           companyId,
@@ -145,14 +137,15 @@ export class LeadRepository extends FirestoreRepository {
         const cleanMobile = mobile?.replace(/[^0-9]/g, '');
         const cleanEmail = email?.trim().toLowerCase();
 
-        const companiesSnap = await getDocs(collection(this.firestore, this.companiesCol));
-        const contactsSnap = await getDocs(collection(this.firestore, this.contactsCol));
+        const companiesSnap = await this.firestore.collection(this.companiesCol).get();
+        const contactsSnap = await this.firestore.collection(this.contactsCol).get();
 
-        const companies: CompanyRecord[] = [];
-        companiesSnap.forEach((d) => companies.push(d.data() as CompanyRecord));
-
-        const contacts: ContactRecord[] = [];
-        contactsSnap.forEach((d) => contacts.push(d.data() as ContactRecord));
+        const companies: CompanyRecord[] = companiesSnap.docs.map(
+          (d) => d.data() as CompanyRecord
+        );
+        const contacts: ContactRecord[] = contactsSnap.docs.map(
+          (d) => d.data() as ContactRecord
+        );
 
         let conflictType: 'companyName' | 'mobile' | 'email' | 'multiple' | undefined;
         const matchedFields: string[] = [];
@@ -239,10 +232,10 @@ export class LeadRepository extends FirestoreRepository {
           pincode: String(data?.pincode || '').trim(),
         };
 
-        const batch = writeBatch(this.firestore);
-        batch.set(doc(this.firestore, this.companiesCol, companyId), company);
-        batch.set(doc(this.firestore, this.contactsCol, contactId), contact);
-        batch.set(doc(this.firestore, this.addressesCol, addressId), address);
+        const batch = this.firestore.batch();
+        batch.set(this.firestore.collection(this.companiesCol).doc(companyId), company);
+        batch.set(this.firestore.collection(this.contactsCol).doc(contactId), contact);
+        batch.set(this.firestore.collection(this.addressesCol).doc(addressId), address);
 
         await batch.commit();
 
@@ -262,9 +255,9 @@ export class LeadRepository extends FirestoreRepository {
   ): Promise<FullLeadRecord | null> {
     return this.safeExec(
       async () => {
-        const companyRef = doc(this.firestore, this.companiesCol, companyId);
-        const companySnap = await getDoc(companyRef);
-        if (!companySnap.exists()) return null;
+        const companyRef = this.firestore.collection(this.companiesCol).doc(companyId);
+        const companySnap = await companyRef.get();
+        if (!companySnap.exists) return null;
 
         const company = companySnap.data() as CompanyRecord;
 
@@ -275,15 +268,14 @@ export class LeadRepository extends FirestoreRepository {
         if (data?.website !== undefined && data?.website !== null)
           company.website = String(data.website).trim();
 
-        const contactsQ = query(
-          collection(this.firestore, this.contactsCol),
-          where('companyId', '==', companyId)
-        );
-        const contactsSnap = await getDocs(contactsQ);
+        const contactsSnap = await this.firestore
+          .collection(this.contactsCol)
+          .where('companyId', '==', companyId)
+          .get();
 
-        let contactId = `cont_${companyId}`;
+        let contactRef = this.firestore.collection(this.contactsCol).doc(`cont_${companyId}`);
         let contact: ContactRecord = {
-          id: contactId,
+          id: `cont_${companyId}`,
           companyId,
           contactPerson: '',
           mobile: '',
@@ -292,7 +284,7 @@ export class LeadRepository extends FirestoreRepository {
         };
 
         if (!contactsSnap.empty) {
-          contactId = contactsSnap.docs[0].id;
+          contactRef = contactsSnap.docs[0].ref;
           contact = contactsSnap.docs[0].data() as ContactRecord;
         }
 
@@ -305,15 +297,14 @@ export class LeadRepository extends FirestoreRepository {
         if (data?.email !== undefined && data?.email !== null)
           contact.email = String(data.email).trim();
 
-        const addressesQ = query(
-          collection(this.firestore, this.addressesCol),
-          where('companyId', '==', companyId)
-        );
-        const addressesSnap = await getDocs(addressesQ);
+        const addressesSnap = await this.firestore
+          .collection(this.addressesCol)
+          .where('companyId', '==', companyId)
+          .get();
 
-        let addressId = `addr_${companyId}`;
+        let addressRef = this.firestore.collection(this.addressesCol).doc(`addr_${companyId}`);
         let address: AddressRecord = {
-          id: addressId,
+          id: `addr_${companyId}`,
           companyId,
           officeAddress: '',
           factoryAddress: '',
@@ -323,7 +314,7 @@ export class LeadRepository extends FirestoreRepository {
         };
 
         if (!addressesSnap.empty) {
-          addressId = addressesSnap.docs[0].id;
+          addressRef = addressesSnap.docs[0].ref;
           address = addressesSnap.docs[0].data() as AddressRecord;
         }
 
@@ -338,10 +329,10 @@ export class LeadRepository extends FirestoreRepository {
         if (data?.pincode !== undefined && data?.pincode !== null)
           address.pincode = String(data.pincode).trim();
 
-        const batch = writeBatch(this.firestore);
+        const batch = this.firestore.batch();
         batch.set(companyRef, company);
-        batch.set(doc(this.firestore, this.contactsCol, contactId), contact);
-        batch.set(doc(this.firestore, this.addressesCol, addressId), address);
+        batch.set(contactRef, contact);
+        batch.set(addressRef, address);
 
         await batch.commit();
 
@@ -356,25 +347,23 @@ export class LeadRepository extends FirestoreRepository {
   public async deleteLead(companyId: string): Promise<boolean> {
     return this.safeExec(
       async () => {
-        const companyRef = doc(this.firestore, this.companiesCol, companyId);
-        const companySnap = await getDoc(companyRef);
-        if (!companySnap.exists()) return false;
+        const companyRef = this.firestore.collection(this.companiesCol).doc(companyId);
+        const companySnap = await companyRef.get();
+        if (!companySnap.exists) return false;
 
-        const batch = writeBatch(this.firestore);
+        const batch = this.firestore.batch();
         batch.delete(companyRef);
 
-        const contactsQ = query(
-          collection(this.firestore, this.contactsCol),
-          where('companyId', '==', companyId)
-        );
-        const contactsSnap = await getDocs(contactsQ);
+        const contactsSnap = await this.firestore
+          .collection(this.contactsCol)
+          .where('companyId', '==', companyId)
+          .get();
         contactsSnap.forEach((d) => batch.delete(d.ref));
 
-        const addressesQ = query(
-          collection(this.firestore, this.addressesCol),
-          where('companyId', '==', companyId)
-        );
-        const addressesSnap = await getDocs(addressesQ);
+        const addressesSnap = await this.firestore
+          .collection(this.addressesCol)
+          .where('companyId', '==', companyId)
+          .get();
         addressesSnap.forEach((d) => batch.delete(d.ref));
 
         await batch.commit();
