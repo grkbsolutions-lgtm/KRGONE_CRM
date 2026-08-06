@@ -1,0 +1,62 @@
+{
+  "entities": {
+    "companies": {
+      "title": "companies",
+      "description": "Company / business profiles extracted from documents or manually created",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyName": { "type": "string" },
+        "category": { "type": "string" },
+        "website": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "companyName"]
+    },
+    "contacts": {
+      "title": "contacts",
+      "description": "Contact persons associated with companies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "contactPerson": { "type": "string" },
+        "mobile": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" }
+      },
+      "required": ["id", "companyId"]
+    },
+    "addresses": {
+      "title": "addresses",
+      "description": "Office and factory addresses for companies",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "companyId": { "type": "string" },
+        "officeAddress": { "type": "string" },
+        "factoryAddress": { "type": "string" },
+        "city": { "type": "string" },
+        "state": { "type": "string" },
+        "pincode": { "type": "string" }
+      },
+      "required": ["id", "companyId"]
+    },
+    "importLogs": {
+      "title": "importLogs",
+      "description": "Logs of scan and import sessions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "importedBy": { "type": "string" },
+        "importDate": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "totalCompanies": { "type": "number" },
+        "importedCompanies": { "type": "number" },
+        "duplicates": { "type": "number" },
+        "processingTime": { "type": "number" }
+      },
+      "required": ["id", "importDate"]
+    }
+  }
+}

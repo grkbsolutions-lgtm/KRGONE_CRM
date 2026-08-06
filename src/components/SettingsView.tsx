@@ -46,11 +46,11 @@ export const SettingsView: React.FC = () => {
               <input
                 type="text"
                 disabled
-                value="gemini-2.5-flash (Server-Side Auto Managed)"
+                value="gemini-3.6-flash (Server-Side Auto Managed)"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-500 cursor-not-allowed"
               />
               <p className="text-[10px] text-slate-500 mt-1">
-                Utilizes Google Gemini 2.5 Flash for high-speed multimodal OCR image and PDF understanding.
+                Utilizes Google Gemini 3.6 Flash for high-speed multimodal OCR image and PDF understanding.
               </p>
             </div>
 

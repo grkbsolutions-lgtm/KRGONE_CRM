@@ -117,7 +117,7 @@ Key Objectives:
     };
 
     let geminiResponse: any = null;
-    const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+    const modelsToTry = ['gemini-3.6-flash', 'gemini-flash-latest'];
     let lastModelError: any = null;
 
     for (const modelCandidate of modelsToTry) {
@@ -171,48 +171,50 @@ Key Objectives:
       }
     }
 
-    // Map and perform preliminary duplicate check against local DB
-    const processedExtractedCompanies: ExtractedCompany[] = parsedCompanies.map((comp, idx) => {
-      const companyName = comp.companyName || 'Unnamed Business';
-      const contactPerson = comp.contactPerson || '';
-      const mobile = comp.mobile || '';
-      const phone = comp.phone || '';
-      const email = comp.email || '';
-      const officeAddress = comp.officeAddress || '';
-      const factoryAddress = comp.factoryAddress || '';
-      const city = comp.city || '';
-      const state = comp.state || '';
-      const pincode = comp.pincode || '';
-      const category = comp.category || 'General Industry';
-      const website = comp.website || '';
+    // Map and perform preliminary duplicate check against Firestore DB
+    const processedExtractedCompanies: ExtractedCompany[] = await Promise.all(
+      parsedCompanies.map(async (comp, idx) => {
+        const companyName = comp.companyName || 'Unnamed Business';
+        const contactPerson = comp.contactPerson || '';
+        const mobile = comp.mobile || '';
+        const phone = comp.phone || '';
+        const email = comp.email || '';
+        const officeAddress = comp.officeAddress || '';
+        const factoryAddress = comp.factoryAddress || '';
+        const city = comp.city || '';
+        const state = comp.state || '';
+        const pincode = comp.pincode || '';
+        const category = comp.category || 'General Industry';
+        const website = comp.website || '';
 
-      const dupResult = db.checkDuplicate(companyName, mobile, email);
+        const dupResult = await db.checkDuplicate(companyName, mobile, email);
 
-      return {
-        tempId: `temp_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
-        companyName,
-        contactPerson,
-        mobile,
-        phone,
-        email,
-        officeAddress,
-        factoryAddress,
-        city,
-        state,
-        pincode,
-        category,
-        website,
-        selected: true,
-        duplicateStatus: {
-          isDuplicate: dupResult.isDuplicate,
-          conflictType: dupResult.conflictType,
-          existingCompanyId: dupResult.existingCompanyId,
-          existingCompanyName: dupResult.existingCompanyName,
-          matchedFields: dupResult.matchedFields,
-          action: dupResult.isDuplicate ? 'skip' : 'save_new',
-        },
-      };
-    });
+        return {
+          tempId: `temp_${Date.now()}_${idx}_${Math.floor(Math.random() * 1000)}`,
+          companyName,
+          contactPerson,
+          mobile,
+          phone,
+          email,
+          officeAddress,
+          factoryAddress,
+          city,
+          state,
+          pincode,
+          category,
+          website,
+          selected: true,
+          duplicateStatus: {
+            isDuplicate: dupResult.isDuplicate,
+            conflictType: dupResult.conflictType,
+            existingCompanyId: dupResult.existingCompanyId,
+            existingCompanyName: dupResult.existingCompanyName,
+            matchedFields: dupResult.matchedFields,
+            action: dupResult.isDuplicate ? 'skip' : 'save_new',
+          },
+        };
+      })
+    );
 
     const responsePayload: ScanResponse = {
       success: true,
@@ -234,32 +236,38 @@ Key Objectives:
 });
 
 // 3. Batch Check Duplicates
-apiRouter.post('/check-duplicates', (req, res) => {
-  const { companies } = req.body;
-  if (!Array.isArray(companies)) {
-    return res.status(400).json({ error: 'Companies list array required' });
+apiRouter.post('/check-duplicates', async (req, res) => {
+  try {
+    const { companies } = req.body;
+    if (!Array.isArray(companies)) {
+      return res.status(400).json({ error: 'Companies list array required' });
+    }
+
+    const checked = await Promise.all(
+      companies.map(async (comp: ExtractedCompany) => {
+        const dupResult = await db.checkDuplicate(comp.companyName, comp.mobile, comp.email);
+        return {
+          ...comp,
+          duplicateStatus: {
+            isDuplicate: dupResult.isDuplicate,
+            conflictType: dupResult.conflictType,
+            existingCompanyId: dupResult.existingCompanyId,
+            existingCompanyName: dupResult.existingCompanyName,
+            matchedFields: dupResult.matchedFields,
+            action: dupResult.isDuplicate ? 'skip' : 'save_new',
+          },
+        };
+      })
+    );
+
+    res.json({ companies: checked });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to check duplicates' });
   }
-
-  const checked = companies.map((comp: ExtractedCompany) => {
-    const dupResult = db.checkDuplicate(comp.companyName, comp.mobile, comp.email);
-    return {
-      ...comp,
-      duplicateStatus: {
-        isDuplicate: dupResult.isDuplicate,
-        conflictType: dupResult.conflictType,
-        existingCompanyId: dupResult.existingCompanyId,
-        existingCompanyName: dupResult.existingCompanyName,
-        matchedFields: dupResult.matchedFields,
-        action: dupResult.isDuplicate ? 'skip' : 'save_new',
-      },
-    };
-  });
-
-  res.json({ companies: checked });
 });
 
 // 4. Batch Save / Import Leads (supports both /leads/batch-save and /save-batch)
-const handleBatchSave = (req: express.Request, res: express.Response) => {
+const handleBatchSave = async (req: express.Request, res: express.Response) => {
   try {
     const { leads, sourceType, importedBy, processingTimeMs }: BatchSaveRequest = req.body;
 
@@ -279,7 +287,7 @@ const handleBatchSave = (req: express.Request, res: express.Response) => {
       }
 
       if (action === 'update_existing' && targetCompanyId) {
-        db.updateLead(targetCompanyId, {
+        await db.updateLead(targetCompanyId, {
           companyName: data.companyName,
           contactPerson: data.contactPerson,
           mobile: data.mobile,
@@ -297,7 +305,7 @@ const handleBatchSave = (req: express.Request, res: express.Response) => {
         duplicatesCount++;
       } else {
         // action === 'save_new'
-        db.saveLead({
+        await db.saveLead({
           companyName: data.companyName,
           contactPerson: data.contactPerson,
           mobile: data.mobile,
@@ -316,7 +324,7 @@ const handleBatchSave = (req: express.Request, res: express.Response) => {
     }
 
     // Log the import session
-    const log = db.addImportLog({
+    const log = await db.addImportLog({
       importedBy: importedBy || 'Scanner User',
       sourceType: sourceType || 'image',
       totalCompanies: leads.length,
@@ -342,9 +350,9 @@ apiRouter.post('/leads/batch-save', handleBatchSave);
 apiRouter.post('/save-batch', handleBatchSave);
 
 // 5. Get All Leads
-apiRouter.get('/leads', (req, res) => {
+apiRouter.get('/leads', async (req, res) => {
   try {
-    const leads = db.getAllLeads();
+    const leads = await db.getAllLeads();
     res.json({ leads });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Failed to fetch leads' });
@@ -352,29 +360,37 @@ apiRouter.get('/leads', (req, res) => {
 });
 
 // 6. Update single lead
-apiRouter.put('/leads/:id', (req, res) => {
-  const { id } = req.params;
-  const updated = db.updateLead(id, req.body);
-  if (!updated) {
-    return res.status(404).json({ error: 'Lead not found' });
+apiRouter.put('/leads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updated = await db.updateLead(id, req.body);
+    if (!updated) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    res.json({ success: true, lead: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to update lead' });
   }
-  res.json({ success: true, lead: updated });
 });
 
 // 7. Delete single lead
-apiRouter.delete('/leads/:id', (req, res) => {
-  const { id } = req.params;
-  const deleted = db.deleteLead(id);
-  if (!deleted) {
-    return res.status(404).json({ error: 'Lead not found' });
+apiRouter.delete('/leads/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deleted = await db.deleteLead(id);
+    if (!deleted) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+    res.json({ success: true, id });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to delete lead' });
   }
-  res.json({ success: true, id });
 });
 
 // 8. Get Dashboard Stats & Recent Imports
-apiRouter.get('/stats', (req, res) => {
+apiRouter.get('/stats', async (req, res) => {
   try {
-    const stats = db.getStats();
+    const stats = await db.getStats();
     res.json(stats);
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Failed to fetch stats' });
@@ -382,9 +398,9 @@ apiRouter.get('/stats', (req, res) => {
 });
 
 // 9. Get Import Logs
-apiRouter.get('/import-logs', (req, res) => {
+apiRouter.get('/import-logs', async (req, res) => {
   try {
-    const logs = db.getLogs();
+    const logs = await db.getLogs();
     res.json({ logs });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Failed to fetch logs' });
